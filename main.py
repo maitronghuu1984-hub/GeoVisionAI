@@ -26,7 +26,7 @@ genai.configure(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="1.0.1",
+    version="1.0.2",
     description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
 )
 
@@ -94,16 +94,28 @@ async def analyze_geography_image(
 Bạn là giáo viên Địa lí lớp {grade}.
 Hãy phân tích ảnh tư liệu Địa lí được học sinh hoặc giáo viên tải lên.
 
-Yêu cầu:
+Yêu cầu chung:
 - Trả lời bằng tiếng Việt.
 - Ngắn gọn, dễ hiểu, phù hợp học sinh lớp {grade}.
 - Nội dung phục vụ dạy học môn Địa lí.
 - Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
 - Không tạo mục từ khóa.
-- Nếu có thể, gợi ý video liên quan đến nội dung ảnh hoặc link tư liệu giới thiệu về nội dung/bức ảnh.
-- Nếu không chắc có video hoặc link phù hợp, hãy để mảng rỗng [].
-- Không bịa link cụ thể nếu không chắc chắn.
-- Với video_lien_quan và link_tu_lieu, ưu tiên nguồn học tập phổ biến như YouTube, National Geographic, Britannica, NASA Earth Observatory, Google Earth, World Bank, UNESCO, hoặc trang giáo dục phù hợp.
+
+Yêu cầu về video minh họa:
+- Hãy gợi ý video minh họa liên quan trực tiếp đến nội dung bức ảnh nếu có.
+- Video nên giúp học sinh hiểu rõ hơn về hiện tượng, cảnh quan, bản đồ, khí hậu, dân cư, kinh tế hoặc địa hình trong ảnh.
+- Nếu có thể xác định được video YouTube phù hợp và chắc chắn, hãy trả về link YouTube dạng:
+  https://www.youtube.com/watch?v=VIDEO_ID
+- Không dùng link rút gọn nếu không chắc chắn.
+- Nếu không chắc link video chính xác, vẫn điền "tieu_de", "nen_tang", "goi_y_tim_kiem", nhưng để "link" là chuỗi rỗng "".
+- Không bịa link video.
+- App sẽ dùng trường "link" để nhúng video bằng WebView, vì vậy link phải là link YouTube hợp lệ nếu có.
+
+Yêu cầu về tư liệu:
+- Gợi ý link tư liệu liên quan đến nội dung ảnh nếu có.
+- Ưu tiên nguồn học tập đáng tin cậy như National Geographic, Britannica, NASA Earth Observatory, Google Earth, World Bank, UNESCO hoặc trang giáo dục phù hợp.
+- Nếu không chắc link chính xác, vẫn điền "tieu_de", "nguon", "goi_y_tim_kiem", nhưng để "link" là chuỗi rỗng "".
+- Không bịa link tư liệu.
 
 Chủ đề người dùng chọn: {topic}
 
@@ -136,10 +148,10 @@ Trả về đúng cấu trúc JSON sau:
   "ghi_nho": "Một câu ghi nhớ ngắn gọn",
   "video_lien_quan": [
     {{
-      "tieu_de": "Tên video liên quan",
-      "nen_tang": "YouTube hoặc nền tảng khác",
-      "goi_y_tim_kiem": "Cụm từ nên tìm kiếm để xem video",
-      "link": "Link video nếu chắc chắn, nếu không chắc thì để rỗng"
+      "tieu_de": "Tên video minh họa phù hợp với nội dung ảnh",
+      "nen_tang": "YouTube",
+      "goi_y_tim_kiem": "Cụm từ tìm kiếm video minh họa trên YouTube",
+      "link": "Link YouTube hợp lệ nếu chắc chắn, nếu không chắc thì để rỗng"
     }}
   ],
   "link_tu_lieu": [
@@ -147,7 +159,7 @@ Trả về đúng cấu trúc JSON sau:
       "tieu_de": "Tên tư liệu hoặc bài viết liên quan",
       "nguon": "Tên nguồn",
       "goi_y_tim_kiem": "Cụm từ nên tìm kiếm để đọc thêm",
-      "link": "Link nếu chắc chắn, nếu không chắc thì để rỗng"
+      "link": "Link tư liệu nếu chắc chắn, nếu không chắc thì để rỗng"
     }}
   ]
 }}
@@ -185,7 +197,6 @@ Trả về đúng cấu trúc JSON sau:
             }
 
         result.pop("tu_khoa", None)
-
         result.setdefault("video_lien_quan", [])
         result.setdefault("link_tu_lieu", [])
 

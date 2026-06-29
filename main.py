@@ -26,7 +26,7 @@ genai.configure(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="1.0.3",
+    version="1.0.1",
     description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
 )
 
@@ -94,20 +94,16 @@ async def analyze_geography_image(
 Bạn là giáo viên Địa lí lớp {grade}.
 Hãy phân tích ảnh tư liệu Địa lí được học sinh hoặc giáo viên tải lên.
 
-Yêu cầu chung:
+Yêu cầu:
 - Trả lời bằng tiếng Việt.
 - Ngắn gọn, dễ hiểu, phù hợp học sinh lớp {grade}.
 - Nội dung phục vụ dạy học môn Địa lí.
 - Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
 - Không tạo mục từ khóa.
-- Không tạo mục video_lien_quan.
-- Không gợi ý video.
-
-Yêu cầu về tư liệu:
-- Gợi ý link tư liệu liên quan đến nội dung ảnh nếu có.
-- Ưu tiên nguồn học tập đáng tin cậy như National Geographic, Britannica, NASA Earth Observatory, Google Earth, World Bank, UNESCO hoặc trang giáo dục phù hợp.
-- Nếu không chắc link chính xác, vẫn điền "tieu_de", "nguon", "goi_y_tim_kiem", nhưng để "link" là chuỗi rỗng "".
-- Không bịa link tư liệu.
+- Nếu có thể, gợi ý video liên quan đến nội dung ảnh hoặc link tư liệu giới thiệu về nội dung/bức ảnh.
+- Nếu không chắc có video hoặc link phù hợp, hãy để mảng rỗng [].
+- Không bịa link cụ thể nếu không chắc chắn.
+- Với video_lien_quan và link_tu_lieu, ưu tiên nguồn học tập phổ biến như YouTube, National Geographic, Britannica, NASA Earth Observatory, Google Earth, World Bank, UNESCO, hoặc trang giáo dục phù hợp.
 
 Chủ đề người dùng chọn: {topic}
 
@@ -138,12 +134,13 @@ Trả về đúng cấu trúc JSON sau:
   ],
   "goi_y_hoat_dong": "Gợi ý hoạt động dạy học từ ảnh này",
   "ghi_nho": "Một câu ghi nhớ ngắn gọn",
+  
   "link_tu_lieu": [
     {{
       "tieu_de": "Tên tư liệu hoặc bài viết liên quan",
       "nguon": "Tên nguồn",
       "goi_y_tim_kiem": "Cụm từ nên tìm kiếm để đọc thêm",
-      "link": "Link tư liệu nếu chắc chắn, nếu không chắc thì để rỗng"
+      "link": "Link nếu chắc chắn, nếu không chắc thì để rỗng"
     }}
   ]
 }}
@@ -180,7 +177,8 @@ Trả về đúng cấu trúc JSON sau:
             }
 
         result.pop("tu_khoa", None)
-        result.pop("video_lien_quan", None)
+
+
         result.setdefault("link_tu_lieu", [])
 
         return {

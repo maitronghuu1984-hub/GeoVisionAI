@@ -26,7 +26,7 @@ genai.configure(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="1.0.2",
+    version="1.0.3",
     description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
 )
 
@@ -100,16 +100,8 @@ Yêu cầu chung:
 - Nội dung phục vụ dạy học môn Địa lí.
 - Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
 - Không tạo mục từ khóa.
-
-Yêu cầu về video minh họa:
-- Hãy gợi ý video minh họa liên quan trực tiếp đến nội dung bức ảnh nếu có.
-- Video nên giúp học sinh hiểu rõ hơn về hiện tượng, cảnh quan, bản đồ, khí hậu, dân cư, kinh tế hoặc địa hình trong ảnh.
-- Nếu có thể xác định được video YouTube phù hợp và chắc chắn, hãy trả về link YouTube dạng:
-  https://www.youtube.com/watch?v=VIDEO_ID
-- Không dùng link rút gọn nếu không chắc chắn.
-- Nếu không chắc link video chính xác, vẫn điền "tieu_de", "nen_tang", "goi_y_tim_kiem", nhưng để "link" là chuỗi rỗng "".
-- Không bịa link video.
-- App sẽ dùng trường "link" để nhúng video bằng WebView, vì vậy link phải là link YouTube hợp lệ nếu có.
+- Không tạo mục video_lien_quan.
+- Không gợi ý video.
 
 Yêu cầu về tư liệu:
 - Gợi ý link tư liệu liên quan đến nội dung ảnh nếu có.
@@ -146,14 +138,6 @@ Trả về đúng cấu trúc JSON sau:
   ],
   "goi_y_hoat_dong": "Gợi ý hoạt động dạy học từ ảnh này",
   "ghi_nho": "Một câu ghi nhớ ngắn gọn",
-  "video_lien_quan": [
-    {{
-      "tieu_de": "Tên video minh họa phù hợp với nội dung ảnh",
-      "nen_tang": "YouTube",
-      "goi_y_tim_kiem": "Cụm từ tìm kiếm video minh họa trên YouTube",
-      "link": "Link YouTube hợp lệ nếu chắc chắn, nếu không chắc thì để rỗng"
-    }}
-  ],
   "link_tu_lieu": [
     {{
       "tieu_de": "Tên tư liệu hoặc bài viết liên quan",
@@ -192,12 +176,11 @@ Trả về đúng cấu trúc JSON sau:
                 "cau_hoi_tu_luan": [],
                 "goi_y_hoat_dong": "",
                 "ghi_nho": "",
-                "video_lien_quan": [],
                 "link_tu_lieu": []
             }
 
         result.pop("tu_khoa", None)
-        result.setdefault("video_lien_quan", [])
+        result.pop("video_lien_quan", None)
         result.setdefault("link_tu_lieu", [])
 
         return {

@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import base64
 
 from PIL import Image, UnidentifiedImageError
 from dotenv import load_dotenv
@@ -8,26 +9,26 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-import google.generativeai as genai
+from openai import OpenAI
 
 
 load_dotenv()
 
-API_KEY = os.getenv("GEMINI_API_KEY")
+API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not API_KEY:
     raise RuntimeError(
-        "GEMINI_API_KEY chưa được thiết lập. "
+        "OPENAI_API_KEY chưa được thiết lập. "
         "Nếu chạy local hãy kiểm tra file .env, "
-        "nếu chạy trên Render hãy thêm Environment Variable GEMINI_API_KEY."
+        "nếu chạy trên Render hãy thêm Environment Variable OPENAI_API_KEY."
     )
 
-genai.configure(api_key=API_KEY)
+client = OpenAI(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="1.0.1",
-    description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
+    version="2.0.0",
+    description="API phân tích ảnh tư liệu Địa lí bằng OpenAI Vision"
 )
 
 app.add_middleware(
@@ -38,14 +39,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = genai.GenerativeModel("gemini-2.5-flash")
-
 
 @app.get("/")
 async def home():
     return {
         "success": True,
-        "message": "GeoVision AI Backend is running"
+        "message": "GeoVision AI Backend is running with OpenAI API"
     }
 
 
@@ -75,6 +74,10 @@ async def analyze_geography_image(
 
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG")
+        image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
     except UnidentifiedImageError:
         raise HTTPException(
             status_code=400,
@@ -98,7 +101,7 @@ Yêu cầu:
 - Trả lời bằng tiếng Việt.
 - Ngắn gọn, dễ hiểu, phù hợp học sinh lớp {grade}.
 - Nội dung phục vụ dạy học môn Địa lí.
-- Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
+- Chỉ trả về JSON hợp lệ.
 - Không dùng markdown.
 - Không dùng ```json.
 - Không thêm chữ trước hoặc sau JSON.
@@ -141,15 +144,26 @@ Trả về đúng cấu trúc JSON sau:
 """
 
     try:
-        response = model.generate_content([prompt, image])
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "input_image",
+                            "image_url": f"data:image/jpeg;base64,{image_base64}"
+                        }
+                    ]
+                }
+            ]
+        )
 
-        if not response or not getattr(response, "text", None):
-            raise HTTPException(
-                status_code=500,
-                detail="AI không trả về nội dung."
-            )
-
-        text = response.text.strip()
+        text = response.output_text.strip()
 
         text = text.replace("```json", "")
         text = text.replace("```", "")
@@ -183,7 +197,7 @@ Trả về đúng cấu trúc JSON sau:
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi AI: {str(e)}"
+            detail=f"Lỗi OpenAI: {str(e)}"
         )
 
 

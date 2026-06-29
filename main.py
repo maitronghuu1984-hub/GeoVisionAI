@@ -16,13 +16,17 @@ load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not API_KEY:
-    raise RuntimeError("Chưa có GEMINI_API_KEY trong file .env")
+    raise RuntimeError(
+        "GEMINI_API_KEY chưa được thiết lập. "
+        "Nếu chạy local hãy kiểm tra file .env, "
+        "nếu chạy trên Render hãy thêm Environment Variable GEMINI_API_KEY."
+    )
 
 genai.configure(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="1.0.0",
+    version="1.0.1",
     description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
 )
 
@@ -95,6 +99,9 @@ Yêu cầu:
 - Ngắn gọn, dễ hiểu, phù hợp học sinh lớp {grade}.
 - Nội dung phục vụ dạy học môn Địa lí.
 - Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
+- Không dùng markdown.
+- Không dùng ```json.
+- Không thêm chữ trước hoặc sau JSON.
 
 Chủ đề người dùng chọn: {topic}
 
@@ -135,6 +142,13 @@ Trả về đúng cấu trúc JSON sau:
 
     try:
         response = model.generate_content([prompt, image])
+
+        if not response or not getattr(response, "text", None):
+            raise HTTPException(
+                status_code=500,
+                detail="AI không trả về nội dung."
+            )
+
         text = response.text.strip()
 
         text = text.replace("```json", "")
@@ -163,6 +177,9 @@ Trả về đúng cấu trúc JSON sau:
             "note": "Kết quả do AI tạo sinh hỗ trợ, giáo viên cần kiểm tra trước khi sử dụng chính thức."
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -173,12 +190,6 @@ Trả về đúng cấu trúc JSON sau:
 if __name__ == "__main__":
     import uvicorn
 
-    #uvicorn.run(
-        #app,
-        #host="127.0.0.1",
-
-       # port=8000
-  #  )
     uvicorn.run(
         app,
         host="0.0.0.0",

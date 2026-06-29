@@ -5,12 +5,14 @@
 #google-generativeai
 #Pillow
 #python-multipart
-fastapi==0.115.6
-uvicorn==0.34.0
+fastapi==0.116.1
+uvicorn==0.35.0
 pydantic==2.10.4
 starlette==0.41.3
 python-multipart==0.0.20
 python-dotenv
-pillow
+pillow==11.3.0
 google-generativeai
 typing-extensions
+
+

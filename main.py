@@ -1,7 +1,6 @@
 import os
 import io
 import json
-import base64
 
 from PIL import Image, UnidentifiedImageError
 from dotenv import load_dotenv
@@ -9,26 +8,22 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from openai import OpenAI
+import google.generativeai as genai
 
 
 load_dotenv()
 
-API_KEY = os.getenv("OPENAI_API_KEY")
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not API_KEY:
-    raise RuntimeError(
-        "OPENAI_API_KEY chưa được thiết lập. "
-        "Nếu chạy local hãy kiểm tra file .env, "
-        "nếu chạy trên Render hãy thêm Environment Variable OPENAI_API_KEY."
-    )
+    raise RuntimeError("Chưa có GEMINI_API_KEY trong file .env")
 
-client = OpenAI(api_key=API_KEY)
+genai.configure(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="2.0.0",
-    description="API phân tích ảnh tư liệu Địa lí bằng OpenAI Vision"
+    version="1.0.0",
+    description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
 )
 
 app.add_middleware(
@@ -39,12 +34,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+model = genai.GenerativeModel("gemini-2.5-flash")
+
 
 @app.get("/")
 async def home():
     return {
         "success": True,
-        "message": "GeoVision AI Backend is running with OpenAI API"
+        "message": "GeoVision AI Backend is running"
     }
 
 
@@ -74,10 +71,6 @@ async def analyze_geography_image(
 
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
-        buffer = io.BytesIO()
-        image.save(buffer, format="JPEG")
-        image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
-
     except UnidentifiedImageError:
         raise HTTPException(
             status_code=400,
@@ -101,10 +94,7 @@ Yêu cầu:
 - Trả lời bằng tiếng Việt.
 - Ngắn gọn, dễ hiểu, phù hợp học sinh lớp {grade}.
 - Nội dung phục vụ dạy học môn Địa lí.
-- Chỉ trả về JSON hợp lệ.
-- Không dùng markdown.
-- Không dùng ```json.
-- Không thêm chữ trước hoặc sau JSON.
+- Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
 
 Chủ đề người dùng chọn: {topic}
 
@@ -144,26 +134,8 @@ Trả về đúng cấu trúc JSON sau:
 """
 
     try:
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": prompt
-                        },
-                        {
-                            "type": "input_image",
-                            "image_url": f"data:image/jpeg;base64,{image_base64}"
-                        }
-                    ]
-                }
-            ]
-        )
-
-        text = response.output_text.strip()
+        response = model.generate_content([prompt, image])
+        text = response.text.strip()
 
         text = text.replace("```json", "")
         text = text.replace("```", "")
@@ -191,19 +163,22 @@ Trả về đúng cấu trúc JSON sau:
             "note": "Kết quả do AI tạo sinh hỗ trợ, giáo viên cần kiểm tra trước khi sử dụng chính thức."
         }
 
-    except HTTPException:
-        raise
-
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Lỗi OpenAI: {str(e)}"
+            detail=f"Lỗi AI: {str(e)}"
         )
 
 
 if __name__ == "__main__":
     import uvicorn
 
+    #uvicorn.run(
+        #app,
+        #host="127.0.0.1",
+
+       # port=8000
+  #  )
     uvicorn.run(
         app,
         host="0.0.0.0",

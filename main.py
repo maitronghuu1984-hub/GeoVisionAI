@@ -16,13 +16,17 @@ load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not API_KEY:
-    raise RuntimeError("Chưa có GEMINI_API_KEY trong file .env")
+    raise RuntimeError(
+        "GEMINI_API_KEY chưa được thiết lập. "
+        "Nếu chạy local hãy kiểm tra file .env, "
+        "nếu chạy trên Render hãy thêm Environment Variable GEMINI_API_KEY."
+    )
 
 genai.configure(api_key=API_KEY)
 
 app = FastAPI(
     title="GeoVision AI Backend",
-    version="1.0.0",
+    version="1.0.1",
     description="API phân tích ảnh tư liệu Địa lí bằng AI tạo sinh"
 )
 
@@ -95,6 +99,11 @@ Yêu cầu:
 - Ngắn gọn, dễ hiểu, phù hợp học sinh lớp {grade}.
 - Nội dung phục vụ dạy học môn Địa lí.
 - Chỉ trả về JSON hợp lệ, không thêm giải thích bên ngoài JSON.
+- Không tạo mục từ khóa.
+- Nếu có thể, gợi ý video liên quan đến nội dung ảnh hoặc link tư liệu giới thiệu về nội dung/bức ảnh.
+- Nếu không chắc có video hoặc link phù hợp, hãy để mảng rỗng [].
+- Không bịa link cụ thể nếu không chắc chắn.
+- Với video_lien_quan và link_tu_lieu, ưu tiên nguồn học tập phổ biến như YouTube, National Geographic, Britannica, NASA Earth Observatory, Google Earth, World Bank, UNESCO, hoặc trang giáo dục phù hợp.
 
 Chủ đề người dùng chọn: {topic}
 
@@ -108,11 +117,6 @@ Trả về đúng cấu trúc JSON sau:
     "Ý chính 1",
     "Ý chính 2",
     "Ý chính 3"
-  ],
-  "tu_khoa": [
-    "từ khóa 1",
-    "từ khóa 2",
-    "từ khóa 3"
   ],
   "cau_hoi_trac_nghiem": [
     {{
@@ -129,14 +133,36 @@ Trả về đúng cấu trúc JSON sau:
     "Câu hỏi tự luận 2"
   ],
   "goi_y_hoat_dong": "Gợi ý hoạt động dạy học từ ảnh này",
-  "ghi_nho": "Một câu ghi nhớ ngắn gọn"
+  "ghi_nho": "Một câu ghi nhớ ngắn gọn",
+  "video_lien_quan": [
+    {{
+      "tieu_de": "Tên video liên quan",
+      "nen_tang": "YouTube hoặc nền tảng khác",
+      "goi_y_tim_kiem": "Cụm từ nên tìm kiếm để xem video",
+      "link": "Link video nếu chắc chắn, nếu không chắc thì để rỗng"
+    }}
+  ],
+  "link_tu_lieu": [
+    {{
+      "tieu_de": "Tên tư liệu hoặc bài viết liên quan",
+      "nguon": "Tên nguồn",
+      "goi_y_tim_kiem": "Cụm từ nên tìm kiếm để đọc thêm",
+      "link": "Link nếu chắc chắn, nếu không chắc thì để rỗng"
+    }}
+  ]
 }}
 """
 
     try:
         response = model.generate_content([prompt, image])
-        text = response.text.strip()
 
+        if not response or not response.text:
+            raise HTTPException(
+                status_code=500,
+                detail="AI không trả về nội dung."
+            )
+
+        text = response.text.strip()
         text = text.replace("```json", "")
         text = text.replace("```", "")
         text = text.strip()
@@ -150,18 +176,27 @@ Trả về đúng cấu trúc JSON sau:
                 "loai_tu_lieu": "Không xác định",
                 "mo_ta_anh": text,
                 "kien_thuc_trong_tam": [],
-                "tu_khoa": [],
                 "cau_hoi_trac_nghiem": [],
                 "cau_hoi_tu_luan": [],
                 "goi_y_hoat_dong": "",
-                "ghi_nho": ""
+                "ghi_nho": "",
+                "video_lien_quan": [],
+                "link_tu_lieu": []
             }
+
+        result.pop("tu_khoa", None)
+
+        result.setdefault("video_lien_quan", [])
+        result.setdefault("link_tu_lieu", [])
 
         return {
             "success": True,
             "result": result,
             "note": "Kết quả do AI tạo sinh hỗ trợ, giáo viên cần kiểm tra trước khi sử dụng chính thức."
         }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         raise HTTPException(
@@ -173,12 +208,6 @@ Trả về đúng cấu trúc JSON sau:
 if __name__ == "__main__":
     import uvicorn
 
-    #uvicorn.run(
-        #app,
-        #host="127.0.0.1",
-
-       # port=8000
-  #  )
     uvicorn.run(
         app,
         host="0.0.0.0",
